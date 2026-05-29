@@ -1,0 +1,32 @@
+# 환경 변수 / 시크릿
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 데이터 / 로그
+backend/data/
+*.sqlite3
+*.db
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# AI 에이전트 임시 파일
+.claude/scratch/
+.claude/plans/
