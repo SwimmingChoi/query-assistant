@@ -1,7 +1,7 @@
 ---
 name: session
 description: 프로젝트 현재 상태. 세션 시작 시 현재 상태 파악용.
-last-updated: 2026-05-29
+last-updated: 2026-05-29 (저녁)
 ---
 
 # 세션 상태
@@ -32,10 +32,16 @@ last-updated: 2026-05-29
 | ~~P1~~ | ~~SELECT-only 사후 검증 (`safety.py`) + router 통합 + 보안 보강~~ | **Done (2026-05-28 오후)** |
 | ~~P1~~ | ~~프론트 UI (`static/hw-query.{html,js,css}` 분리 구조 + `/static` mount)~~ | **Done (2026-05-28 저녁)** |
 | ~~P1~~ | ~~사내 vLLM Gemma 4(`gemma-4-31B-it`) 게이트웨이 기본 백엔드 전환~~ | **Done (2026-05-29)** |
+| ~~P0~~ | ~~운영 패턴 대응 한도 상향 (schema_text 20K→40K, timeout 60→120, max_tokens 8000 신설)~~ | **Done (2026-05-29 저녁)** |
+| ~~P1~~ | ~~사내 분석 패턴 cookbook 시스템 프롬프트 추가 (마감년월/CASE 매핑/SUM(CASE)/ROW_NUMBER/다중 JOIN/GROUP BY 반복)~~ | **Done (2026-05-29 저녁)** |
+| ~~P1~~ | ~~UI 개편 (메타 칩·콜아웃·배지·재생성·초기화) + 브랜드 한국어화~~ | **Done (2026-05-29 저녁)** |
 | P1 | 식별자 후처리 검증 (스키마 텍스트와 SQL 식별자 대조) — `safety.py` 확장 또는 별도 모듈 | Todo |
+| P1 | 한국어 별칭 표기 정책 결정 (사내 관행 따옴표 없는 별칭 허용 여부) | Todo |
+| P1 | 사내 분석 패턴을 `dialects.py` 메타데이터로 격상 (cookbook → 구조화) | Todo |
 | P1 | 브라우저 실 동작 검증 (vLLM 기본값으로 4 DBMS 골든셋 일부 시연) | Todo |
 | P1 | 감사 로그 SQLite 스키마 설계 + 기록 | Todo |
 | P2 | 계리/데이터 부서 검증용 골드셋(30~50문항) 초안 | Todo |
+| P2 | 코드 매핑 사전 분리 입력 UX (현재는 schema_text 안 자유 텍스트) | Todo |
 | P2 | 로컬 PoC 기동 가이드 (README + .env.example) | Todo |
 
 ---
@@ -47,6 +53,64 @@ last-updated: 2026-05-29
 ---
 
 ## 최근 세션
+
+### 2026-05-29 (저녁) — 실 운영 패턴 반영 + UI 개편
+
+#### 세션 목표
+- (1) 사내 실 분석 SQL(`sample/` 의 신계약건수_손보·TM 전자문서특약 2건) 기준으로 현재 구조가 잘 맞는지 진단하고 격차 해소.
+- (2) 화면 샘플(`sample/ui_sample.png` 한화 메일 어시스턴트) 기준으로 UI 의 정보 위계 강화.
+- (3) 브랜드 표기 한국어화.
+
+#### 분석 발견
+- 샘플 쿼리는 6~13KB / 100~234줄, 다중 LEFT JOIN(3~7개), 인라인 뷰 + `ROW_NUMBER() OVER (PARTITION BY ...)`, CASE 코드 매핑(`CA00003=개인용`, `CCA00194=ECO특약` 등 수십~수백 종), 마감년월(`CLS_YYMM` YYYYMM 문자열) 파티션 필터, GROUP BY 가 SELECT 표현식을 그대로 반복하는 패턴.
+- DBMS 표기상 Greenplum/Tibero/Oracle 계열만 등장(MSSQL 패턴 없음).
+- `safety.py` 의 50KB 길이 가드와 deny-list 단어 경계 규칙은 안전(컬럼명 `INSERT_DATE` 등에 false positive 없음). 그러나 입력/생성 한도와 시스템 프롬프트가 운영 패턴을 못 받아냄.
+
+#### 변경 파일
+
+P0 한도 상향 (1 커밋):
+| 커밋 | 파일 | 요약 |
+|------|------|------|
+| `18b7b14` fix | `backend/app/query_assistant/schemas.py`, `app/config.py`, `query_assistant/generator.py`, `.env.example` | `schema_text` max_length 20K → 40K. `LLM_TIMEOUT_SECONDS` 60→120. `LLM_MAX_TOKENS=8000` 신설, generator request body 에 명시 전달. |
+
+sample/ 격리 (1 커밋):
+| 커밋 | 파일 | 요약 |
+|------|------|------|
+| `f9ee389` chore | `.gitignore` | `sample/` (사내 도메인 코드·조직 매핑 포함) 외부 공유 금지 → ignore. |
+
+프롬프트 강화 (1 커밋):
+| 커밋 | 파일 | 요약 |
+|------|------|------|
+| `64a4ec4` feat | `backend/app/query_assistant/prompts.py` | 시스템 프롬프트 BASE 끝에 "# 사내 자주 쓰는 분석 쿼리 패턴 (4 DBMS 공통)" cookbook 7항목 추가. 마감년월 파티션 / CASE 코드 매핑 / SUM(CASE) 조건부 합계 / 인라인 뷰 + ROW_NUMBER / 다중 LEFT JOIN + NULL / GROUP BY 표현식 반복 / 다중 필터 + SQL 주석. |
+
+UI 개편 (1 커밋):
+| 커밋 | 파일 | 요약 |
+|------|------|------|
+| `f208f61` feat | `static/hw-query.{html,css,js}` | 헤더 우측 오렌지 둥근 "초기화" 액션. 카드 헤드를 큰 제목 + 서브타이틀 + 우측 배지 그룹으로 확장(좌: 현재 DBMS 동적 배지 / 우: `AI 생성`·`SELECT-only`). 메타 칩 행(좌: 스키마/질문 글자수 실시간, 우: SQL 줄/가정/주의 갯수). 결과 본문 위 노란 callout. section-label 좌측 컬러 바. "↻ 재생성" 버튼. 브랜드 "Query Assistant" → "한화 SQL 어시스턴트", `<title>` 도 한국어 통일. |
+
+#### 결정 사항
+- **schema_text 한도 40KB**: 사내 매직 코드 매핑(`CA…`, `CCA…` 수십~수백 항목)을 함께 붙여 넣는 패턴 수용. 50KB 까지 늘리면 safety 출력 가드(50KB) 와 균형이 깨져 40KB 로 보수.
+- **timeout 120s, max_tokens 8000**: Gemma 4 31B 추론 속도 + 200줄급 출력(≈3~4K 토큰) 여유 + max_model_len 32768 안에서 입력 17K + 출력 8K = 25K 로 안전 마진.
+- **cookbook 위치**: BASE 시스템 프롬프트 끝에 1 회 (4 DBMS 공통). 토큰 영향 미미(~400~500), DBMS-specific 변형은 위 dialect 표 참조 안내로 처리.
+- **cookbook vs few-shot**: 비용/효과 측면에서 cookbook 우선. 추가 few-shot(복잡 패턴/DBMS)은 효과 확인 후 결정 — 현재 단순 질문에서 과잉 적용 없음을 검증해 cookbook 만으로 충분 판단.
+- **한국어 별칭 정책 보류**: 사내 관행은 `AS 보험소종목` (따옴표 없음). 가이드 라인은 "인용 사용 권장" 으로 안전 유지 → 별도 결정사항으로 분리(P1 Todo).
+- **`generator.py` 무수정(prompts 강화)**: cookbook 추가는 `_BASE_SYSTEM` 텍스트 변경만으로 끝나, 호출 코드/스키마 무변화.
+- **UI 의 빨간 강조 박스 무시**: 샘플 이미지의 빨간 네모는 단순 강조 표시. 디자인 요소가 아니라고 사용자 명시 → 톤 칩(격식체/친근체) 같은 use case 차이 요소는 우리 사정에 맞게 재해석(DBMS 배지·결과 배지).
+- **브랜드 한국어화**: 헤더와 `<title>` 모두 "한화 SQL 어시스턴트" 로 통일. `brand__mark` 의 "HW" 약자는 그대로(아이콘 역할).
+
+#### 검증
+- `try_safety.py`: 64/64 통과 (회귀 없음).
+- vLLM 실 호출 (Greenplum, 복잡 케이스: 2026 1분기 마감년월·보종별 신계약, 코드 매핑·계상/취소 룰 포함) → cookbook 패턴 1·2·3·5·6 모두 정확 반영, 큰따옴표 한국어 별칭, 분산 키/파티션 인덱스 warnings.
+- vLLM 실 호출 (Oracle, 단순 케이스) → cookbook 과잉 적용 없음, 단순 COUNT(*) 선택.
+- 시스템 프롬프트 사이즈 4 DBMS 평균 ~2200 토큰 (max_model_len 32768 의 약 7%).
+- `GenerateRequest(schema_text='x'*40001)` → 422, 40000 → 통과.
+- 서버 부팅 + `/`, `/static/hw-query.{css,js}` 모두 200, 정적 자산 사이즈(html 7.5K, css 20.8K, js 13.9K).
+
+#### 다음 작업 추천
+- **P1 한국어 별칭 정책 결정** — 사내 관행(따옴표 없음) vs 표준 안전성 트레이드오프. 사용자 의사결정 필요.
+- **P1 식별자 후처리 검증** — Gemma 4 환각 방어. cookbook 으로 정확도 ↑ 하더라도 hallucination 가능성은 잔존.
+- **P1 사내 패턴을 `dialects.py` 메타데이터로 격상** — cookbook 텍스트를 `partition_key_pattern`/`row_number_template` 같은 구조화 필드로.
+- **P1 감사 로그 SQLite** — 운영 가시성, 비동기 기록.
 
 ### 2026-05-29 — 미커밋 정리 + vLLM Gemma 4 게이트웨이 연동
 
