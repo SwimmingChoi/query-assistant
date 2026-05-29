@@ -1,7 +1,7 @@
 ---
 name: session
 description: 프로젝트 현재 상태. 세션 시작 시 현재 상태 파악용.
-last-updated: 2026-05-28 (저녁)
+last-updated: 2026-05-29
 ---
 
 # 세션 상태
@@ -31,8 +31,9 @@ last-updated: 2026-05-28 (저녁)
 | ~~P0~~ | ~~FastAPI 진입점 (`main.py`, `query_assistant/router.py`) + `/health` + `/api/query/generate`~~ | **Done (2026-05-28)** |
 | ~~P1~~ | ~~SELECT-only 사후 검증 (`safety.py`) + router 통합 + 보안 보강~~ | **Done (2026-05-28 오후)** |
 | ~~P1~~ | ~~프론트 UI (`static/hw-query.{html,js,css}` 분리 구조 + `/static` mount)~~ | **Done (2026-05-28 저녁)** |
+| ~~P1~~ | ~~사내 vLLM Gemma 4(`gemma-4-31B-it`) 게이트웨이 기본 백엔드 전환~~ | **Done (2026-05-29)** |
 | P1 | 식별자 후처리 검증 (스키마 텍스트와 SQL 식별자 대조) — `safety.py` 확장 또는 별도 모듈 | Todo |
-| P1 | 브라우저 실 동작 검증 (LLM_API_KEY 설정 후 4 DBMS 골든셋 일부 시연) | Todo |
+| P1 | 브라우저 실 동작 검증 (vLLM 기본값으로 4 DBMS 골든셋 일부 시연) | Todo |
 | P1 | 감사 로그 SQLite 스키마 설계 + 기록 | Todo |
 | P2 | 계리/데이터 부서 검증용 골드셋(30~50문항) 초안 | Todo |
 | P2 | 로컬 PoC 기동 가이드 (README + .env.example) | Todo |
@@ -46,6 +47,50 @@ last-updated: 2026-05-28 (저녁)
 ---
 
 ## 최근 세션
+
+### 2026-05-29 — 미커밋 정리 + vLLM Gemma 4 게이트웨이 연동
+
+#### 세션 목표
+- (1) 2026-05-28 P0/P1 작업분(미커밋 untracked) 의미 단위 분리 커밋.
+- (2) 사내 vLLM Gemma 4(`gemma-4-31B-it`) 게이트웨이를 기본 LLM 백엔드로 연동.
+
+#### 변경 파일
+
+미커밋 정리 (3 커밋):
+| 커밋 | 파일 | 요약 |
+|------|------|------|
+| `0fb0feb` chore | `.gitignore`, `backend/.env.example` | 환경/시크릿 메타 |
+| `e65b101` feat | `backend/app/query_assistant/safety.py`, `backend/scripts/try_safety.py` | SELECT-only safety validator + 64 케이스 회귀 |
+| `48930c0` feat | `backend/app/main.py`, `backend/app/query_assistant/router.py` | FastAPI 진입점 + 라우터 (safety/generator 통합) |
+
+vLLM Gemma 4 연동 (3 커밋):
+| 커밋 | 파일 | 요약 |
+|------|------|------|
+| `8c237e0` feat | `backend/app/config.py`, `.env.example`, `main.py`, `scripts/try_generate.py` | 기본 백엔드 vLLM 게이트웨이(`http://3.38.195.121:5015/v1`, `gemma-4-31B-it`) 로 전환. OpenAI 는 `.env` 옵션. 인증 헤더는 base_url 분기로 자동 처리. |
+| `ba8f212` docs | `docs/VLLM_API_GUIDE.md` | vLLM SLM 게이트웨이 사용자용 가이드 추가(661행) |
+| `8ad5171` docs | `agent-guide/{GUIDE,PROJECT}.md`, `docs/PLAN.md` | 옛 표기 `Gemma-4-26B-A4B-it` → `gemma-4-31B-it` 통일. PROJECT.md 도 "PoC OpenAI → 최종 vLLM" 에서 "PoC 부터 vLLM 기본" 으로 갱신. |
+
+#### 결정 사항
+- **분리 커밋 단위**: untracked 6 파일을 의존성 순서로 (메타 → safety → API) 3 커밋. import 가 깨지지 않도록 safety 가 router 보다 먼저.
+- **기본 백엔드를 vLLM 으로**: PROJECT.md/PLAN.md 의 "PoC OpenAI → 최종 vLLM" 방향과 일치, 실제 vLLM 게이트웨이가 가용하고 인증 불필요라 진입장벽이 낮음. OpenAI 는 `.env` 만 교체하면 그대로 동작하는 옵션으로 유지.
+- **`generator.py` 무수정**: OpenAI Chat Completions 100% 호환이라 base_url + model 토글로 충분. 가이드의 vLLM 특화 옵션(`chat_template_kwargs`, `extra_body`)은 SQL 생성에 불필요하므로 도입 보류.
+- **인증 헤더 분기**: `generator.py` 가 이미 `if settings.llm_api_key:` 조건으로 헤더 추가 — vLLM 은 키 빈 문자열로 헤더 누락, OpenAI 는 키 채워서 Bearer 헤더 추가. 그대로 사용.
+- **부팅 경고 분기**: `main.py` 에 `_requires_api_key()` 헬퍼 — `api.openai.com` 일 때만 키 누락 경고. vLLM 사용 시 무경고 부팅.
+- **`try_generate.py` 가드 분기**: OpenAI base_url 일 때만 `sys.exit(2)`. vLLM 은 키 없이 통과.
+- **SQL temperature 0.1 유지**: Gemma 4 모델카드 권장 1.0은 일반 대화용. 결정적 출력을 위해 0.1 유지. `.env.example` 에 사유 메모.
+- **VLLM_API_GUIDE.md §4.4 모델명 정정**: 권장 샘플링 표의 `Gemma 4 26B-A4B` → `gemma-4-31B-it` (사용자 확인 후 일괄 정정).
+
+#### 검증
+- `GET /health` (vLLM) → HTTP 200, 7ms.
+- `GET /v1/models` → `gemma-4-31B-it`, `max_model_len: 32768`.
+- `POST /v1/chat/completions` JSON 모드 (`response_format: {"type":"json_object"}`) sanity → `{"ok": true}` 정확히 반환.
+- `try_generate.py --dbms oracle` → `TRUNC(ADD_MONTHS(SYSDATE,-1),'MM')` 정확한 Oracle 지난달 표현, 한국어 별칭 `"신규계약건수"`/`"평균보험료"`, safety 통과.
+- `try_generate.py --dbms mssql` → `TOP 10` + `[대괄호 식별자]` + `N'강원도'` + `DATEFROMPARTS`/`DATEADD`/`GETDATE` 정확한 MSSQL 방언, safety 통과.
+
+#### 다음 작업 추천
+- **P1 식별자 후처리 검증**: LLM 환각으로 스키마에 없는 컬럼/테이블이 생성되는 경우 차단. `safety.py` 확장 또는 별도 모듈. Gemma 4의 정확도 검증과도 맞물림.
+- **P1 감사 로그 SQLite**: DBMS/질문/생성SQL/safety 결과/타임스탬프 비동기 기록. 운영 가시성.
+- **P1 4 DBMS 브라우저 시연**: Greenplum/Tibero 도 골든셋 1건씩 brower 에서 실제 호출.
 
 ### 2026-05-28 (저녁 — 프론트 UI)
 
