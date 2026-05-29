@@ -43,6 +43,16 @@ logging.basicConfig(
 )
 
 
+def _requires_api_key(base_url: str) -> bool:
+    """OpenAI 처럼 인증이 필수인 base_url 인지 판별.
+
+    사내 vLLM(`3.38.195.121` 등) 은 인증 불필요. OpenAI 호스트만 명시적으로
+    `True` 를 반환해, 새로운 인증 호스트가 들어와도 안전하게 무경고로 통과.
+    필요해지면 호스트 화이트리스트를 추가한다.
+    """
+    return "api.openai.com" in base_url
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -53,10 +63,12 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.http = client
 
-    if not settings.llm_api_key:
+    # 인증이 필요한 base_url(예: OpenAI) 인데 키가 비어있을 때만 경고.
+    # 사내 vLLM 은 인증 불필요(docs/VLLM_API_GUIDE.md) 이라 키 없이 정상 동작.
+    if not settings.llm_api_key and _requires_api_key(settings.llm_base_url):
         log.warning(
-            "LLM_API_KEY 가 비어 있습니다. 외부 OpenAI 호출 시 401 예상. "
-            "사내 vLLM 사용 중이면 무시 가능."
+            "LLM_API_KEY 가 비어 있습니다. base_url=%s 는 인증이 필요해 401 예상.",
+            settings.llm_base_url,
         )
     log.info(
         "app ready (model=%s, base_url=%s, dbms=%s)",

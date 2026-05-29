@@ -91,13 +91,20 @@ async def main() -> None:
     args = parser.parse_args()
 
     settings = get_settings()
-    if not settings.llm_api_key:
+    # 사내 vLLM(`docs/VLLM_API_GUIDE.md`) 은 인증 불필요. 인증이 필수인
+    # base_url(예: OpenAI)인 경우에만 키 누락을 강한 에러로 처리한다.
+    if not settings.llm_api_key and "api.openai.com" in settings.llm_base_url:
         print(
-            "[!] LLM_API_KEY 가 비어 있습니다. backend/.env 를 채워주세요.\n"
-            "    예: cp .env.example .env && vi .env",
+            "[!] LLM_API_KEY 가 비어 있습니다. OpenAI 호출은 키가 필수입니다.\n"
+            "    backend/.env 의 LLM_API_KEY 를 채우거나 LLM_BASE_URL 을\n"
+            "    사내 vLLM 게이트웨이로 변경하세요. (예: .env.example 참고)",
             file=sys.stderr,
         )
         sys.exit(2)
+    print(
+        f"[i] base_url={settings.llm_base_url}  model={settings.llm_model}",
+        file=sys.stderr,
+    )
 
     targets = [DBMS(args.dbms)] if args.dbms else list(DBMS)
 

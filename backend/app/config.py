@@ -29,10 +29,14 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8090
 
-    # LLM (OpenAI 호환. vLLM 도 동일 URL 형식)
-    llm_base_url: str = "https://api.openai.com/v1"
-    llm_model: str = "gpt-4o-mini"
+    # LLM — 기본값은 사내 vLLM Gemma 게이트웨이(인증 불필요).
+    # OpenAI 로 전환하려면 .env 에 LLM_BASE_URL=https://api.openai.com/v1,
+    # LLM_MODEL=gpt-4o-mini, LLM_API_KEY=sk-... 를 설정.
+    # vLLM 도 OpenAI Chat Completions 100% 호환이므로 generator 코드는 동일.
+    llm_base_url: str = "http://3.38.195.121:5015/v1"
+    llm_model: str = "gemma-4-31B-it"
     llm_api_key: str = ""
+    # SQL 생성은 결정적 출력이 중요 — Gemma 4 모델카드 권장값(1.0)이 아닌 0.1 유지.
     llm_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     llm_timeout_seconds: float = Field(default=60.0, gt=0.0)
 
