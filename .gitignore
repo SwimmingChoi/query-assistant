@@ -30,3 +30,6 @@ Thumbs.db
 # AI 에이전트 임시 파일
 .claude/scratch/
 .claude/plans/
+
+# 사내 실제 분석 쿼리 (도메인 코드/조직 매핑 포함 — 외부 공유 금지)
+sample/
