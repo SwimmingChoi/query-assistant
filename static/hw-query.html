@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HWGI Query Assistant — 자연어 → SQL</title>
+  <title>한화 SQL 어시스턴트 — 자연어로 SQL 생성</title>
   <meta name="description" content="한화손해보험 사내 4종 DBMS 통합 자연어 → SQL 생성 도우미" />
   <link rel="stylesheet" href="/static/hw-query.css" />
 </head>
@@ -12,10 +12,11 @@
     <div class="container nav__inner">
       <div class="brand">
         <span class="brand__mark" aria-hidden="true">HW</span>
-        <span>Query Assistant</span>
+        <span>한화 SQL 어시스턴트</span>
       </div>
       <div class="nav__meta">
         <span id="modelBadge" class="badge badge--ghost" title="현재 LLM 모델">…</span>
+        <button type="button" id="resetBtn" class="nav__action" title="입력/결과 초기화">초기화</button>
       </div>
     </div>
   </header>
@@ -32,7 +33,20 @@
     <div class="grid">
       <!-- ───────────────────────── 입력 ───────────────────────── -->
       <section class="card" aria-labelledby="inputTitle">
-        <h2 id="inputTitle" class="card__title">입력</h2>
+        <div class="card__head">
+          <div class="card__title-group">
+            <h2 id="inputTitle" class="card__title">입력</h2>
+            <p class="card__sub">스키마와 질문을 입력하세요</p>
+          </div>
+          <div class="card__head-meta">
+            <span id="dbmsBadge" class="badge badge--solid">Oracle</span>
+          </div>
+        </div>
+
+        <ul class="meta-chips" aria-label="입력 길이">
+          <li class="chip"><span class="chip__k">스키마</span><span id="schemaCount" class="chip__v">0자</span></li>
+          <li class="chip"><span class="chip__k">질문</span><span id="questionCount" class="chip__v">0자</span></li>
+        </ul>
 
         <div class="field">
           <label class="field__label">대상 DBMS</label>
@@ -85,12 +99,21 @@
       <!-- ───────────────────────── 결과 ───────────────────────── -->
       <section class="card" aria-labelledby="resultTitle">
         <div class="card__head">
-          <h2 id="resultTitle" class="card__title">결과</h2>
-          <div class="result__actions" hidden id="resultActions">
-            <button type="button" id="copyBtn" class="btn btn--ghost btn--sm">SQL 복사</button>
-            <button type="button" id="downloadBtn" class="btn btn--ghost btn--sm">다운로드</button>
+          <div class="card__title-group">
+            <h2 id="resultTitle" class="card__title">결과</h2>
+            <p class="card__sub">선택한 DBMS 방언으로 생성됩니다</p>
+          </div>
+          <div class="card__head-meta">
+            <span class="badge badge--info">AI 생성</span>
+            <span class="badge badge--success">SELECT-only</span>
           </div>
         </div>
+
+        <ul class="meta-chips" id="resultMeta" hidden aria-label="결과 요약">
+          <li class="chip"><span class="chip__k">SQL</span><span id="sqlLinesCount" class="chip__v">0줄</span></li>
+          <li class="chip"><span class="chip__k">가정</span><span id="assumptionsCount" class="chip__v">0개</span></li>
+          <li class="chip"><span class="chip__k">주의</span><span id="warningsCount" class="chip__v">0개</span></li>
+        </ul>
 
         <div id="resultEmpty" class="result__empty">
           왼쪽에서 입력 후 <strong>SQL 생성</strong> 버튼을 누르세요.
@@ -99,6 +122,10 @@
         <div id="resultError" class="alert alert--danger" hidden role="alert"></div>
 
         <div id="resultBody" hidden>
+          <div class="callout callout--warning" role="note">
+            <strong>AI 생성 SQL</strong> — 사내 데이터에 실행하기 전 반드시 검토하세요.
+          </div>
+
           <h3 class="section-label">생성된 SQL</h3>
           <pre id="resultSql" class="code-block" tabindex="0"></pre>
 
@@ -107,6 +134,12 @@
 
           <h3 class="section-label section-label--warnings" id="warningsTitle" hidden>주의</h3>
           <ul id="resultWarnings" class="bullet bullet--warning" hidden></ul>
+        </div>
+
+        <div class="result__actions" hidden id="resultActions">
+          <button type="button" id="regenBtn" class="btn btn--ghost btn--sm">↻ 재생성</button>
+          <button type="button" id="copyBtn" class="btn btn--ghost btn--sm">SQL 복사</button>
+          <button type="button" id="downloadBtn" class="btn btn--primary btn--sm">다운로드 (.sql)</button>
         </div>
       </section>
     </div>

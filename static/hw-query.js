@@ -65,24 +65,41 @@
 
   const els = {
     modelBadge: $("modelBadge"),
+    dbmsBadge: $("dbmsBadge"),
+    resetBtn: $("resetBtn"),
     segBtns: document.querySelectorAll(".seg__btn"),
     templateBtn: $("templateBtn"),
     schemaInput: $("schemaInput"),
     questionInput: $("questionInput"),
+    schemaCount: $("schemaCount"),
+    questionCount: $("questionCount"),
     generateBtn: $("generateBtn"),
     clearBtn: $("clearBtn"),
     resultEmpty: $("resultEmpty"),
     resultBody: $("resultBody"),
     resultError: $("resultError"),
     resultActions: $("resultActions"),
+    resultMeta: $("resultMeta"),
     resultSql: $("resultSql"),
     resultAssumptions: $("resultAssumptions"),
     resultWarnings: $("resultWarnings"),
     assumptionsTitle: $("assumptionsTitle"),
     warningsTitle: $("warningsTitle"),
+    sqlLinesCount: $("sqlLinesCount"),
+    assumptionsCount: $("assumptionsCount"),
+    warningsCount: $("warningsCount"),
+    regenBtn: $("regenBtn"),
     copyBtn: $("copyBtn"),
     downloadBtn: $("downloadBtn"),
     toast: $("toast"),
+  };
+
+  // DBMS 배지 표시 이름 (HTML 의 SEG 버튼 텍스트와 일치)
+  const DBMS_DISPLAY = {
+    oracle: "Oracle",
+    mssql: "MSSQL",
+    greenplum: "Greenplum",
+    tibero: "Tibero",
   };
 
   // 마지막 생성 결과 — 복사/다운로드 시 참조.
@@ -102,6 +119,24 @@
       btn.classList.toggle("is-active", isActive);
       btn.setAttribute("aria-checked", isActive ? "true" : "false");
     });
+    if (els.dbmsBadge) {
+      els.dbmsBadge.textContent = DBMS_DISPLAY[dbms] || dbms;
+    }
+  }
+
+  function updateInputCounts() {
+    const s = els.schemaInput.value.length;
+    const q = els.questionInput.value.length;
+    els.schemaCount.textContent = `${s.toLocaleString()}자`;
+    els.questionCount.textContent = `${q.toLocaleString()}자`;
+  }
+
+  function updateResultMeta(data) {
+    const sqlLines = data.sql ? data.sql.split("\n").length : 0;
+    els.sqlLinesCount.textContent = `${sqlLines}줄`;
+    els.assumptionsCount.textContent = `${(data.assumptions || []).length}개`;
+    els.warningsCount.textContent = `${(data.warnings || []).length}개`;
+    els.resultMeta.hidden = false;
   }
 
   function showToast(message) {
@@ -125,6 +160,7 @@
     els.resultBody.hidden = true;
     els.resultError.hidden = true;
     els.resultActions.hidden = true;
+    els.resultMeta.hidden = true;
     els.resultSql.textContent = "";
     els.resultAssumptions.innerHTML = "";
     els.resultWarnings.innerHTML = "";
@@ -168,6 +204,7 @@
     els.resultSql.textContent = data.sql;
     renderList(els.resultAssumptions, els.assumptionsTitle, data.assumptions);
     renderList(els.resultWarnings, els.warningsTitle, data.warnings);
+    updateResultMeta(data);
   }
 
   // ─── API 호출 ────────────────────────────────────────────────────
@@ -257,14 +294,23 @@
     if (!els.questionInput.value.trim()) {
       els.questionInput.value = SAMPLE_QUESTION;
     }
+    updateInputCounts();
     els.schemaInput.focus();
   }
 
   function handleClear() {
     els.schemaInput.value = "";
     els.questionInput.value = "";
+    updateInputCounts();
     clearResultUI();
     els.schemaInput.focus();
+  }
+
+  // 헤더 "초기화" — 입력 비우기와 동일 동작이지만, 의도상 결과 영역 포커스가
+  // 더 자연스러워 별도 핸들러로 분리(미세 차이만).
+  function handleReset() {
+    handleClear();
+    showToast("입력과 결과를 초기화했습니다");
   }
 
   async function handleCopy() {
@@ -316,8 +362,13 @@
     els.templateBtn.addEventListener("click", handleTemplate);
     els.generateBtn.addEventListener("click", handleGenerate);
     els.clearBtn.addEventListener("click", handleClear);
+    els.resetBtn.addEventListener("click", handleReset);
+    els.regenBtn.addEventListener("click", handleGenerate);
     els.copyBtn.addEventListener("click", handleCopy);
     els.downloadBtn.addEventListener("click", handleDownload);
+
+    els.schemaInput.addEventListener("input", updateInputCounts);
+    els.questionInput.addEventListener("input", updateInputCounts);
 
     // Ctrl/Cmd+Enter 로 빠른 생성
     document.addEventListener("keydown", (e) => {
@@ -329,5 +380,6 @@
   }
 
   bindEvents();
+  updateInputCounts();   // 초기값 0자 표시
   fetchHealth();
 })();
