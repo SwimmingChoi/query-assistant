@@ -55,6 +55,9 @@ async def generate_sql(
             {"role": "user", "content": build_user_prompt(dbms, schema_text, question)},
         ],
         "temperature": settings.llm_temperature,
+        # 출력 토큰 상한 명시. 미지정 시 vLLM/OpenAI 의 기본값은 모델별로 달라
+        # 사내 실 분석 쿼리(200줄/12KB ≈ 3~4K 토큰) 가 잘릴 위험이 있다.
+        "max_tokens": settings.llm_max_tokens,
         # OpenAI 의 JSON 모드. vLLM 일부 버전은 무시할 수 있으므로 파싱은 견고하게.
         "response_format": {"type": "json_object"},
     }

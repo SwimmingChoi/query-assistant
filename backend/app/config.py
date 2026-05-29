@@ -38,7 +38,11 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     # SQL 생성은 결정적 출력이 중요 — Gemma 4 모델카드 권장값(1.0)이 아닌 0.1 유지.
     llm_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
-    llm_timeout_seconds: float = Field(default=60.0, gt=0.0)
+    # 사내 실 분석 쿼리는 200줄 / 12KB 수준도 흔함. 60초로는 부족할 수 있어 120 으로 상향.
+    llm_timeout_seconds: float = Field(default=120.0, gt=0.0)
+    # 출력 토큰 상한. 12KB 쿼리 ≈ 3~4K 토큰 + assumptions/warnings 여유 → 8000.
+    # Gemma 4 max_model_len 32768 안에서 입력(스키마+질문+시스템) 24K 까지 여유.
+    llm_max_tokens: int = Field(default=8000, gt=0)
 
     # Audit log (SQLite)
     database_path: str = "./data/audit.sqlite3"
