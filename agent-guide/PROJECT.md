@@ -6,7 +6,7 @@ last-updated: 2026-05-28
 
 # 프로젝트 개요
 
-> 한화손해보험 사내에서 사용하는 4종 DBMS(Oracle, MSSQL, Greenplum, Tibero)를 통합 지원하는 **자연어 → SQL 생성 도우미**. SQL을 모르는 현업이 한국어 질문을 입력하면 선택한 DBMS의 방언으로 실행 가능한 SQL을 생성·복사·다운로드한다. PoC는 OpenAI 기반, 최종은 사내 vLLM(`Gemma-4-26B-A4B-it`) 전환.
+> 한화손해보험 사내에서 사용하는 4종 DBMS(Oracle, MSSQL, Greenplum, Tibero)를 통합 지원하는 **자연어 → SQL 생성 도우미**. SQL을 모르는 현업이 한국어 질문을 입력하면 선택한 DBMS의 방언으로 실행 가능한 SQL을 생성·복사·다운로드한다. PoC부터 사내 vLLM(`gemma-4-31B-it`, OpenAI Chat Completions 호환) 기본 사용, OpenAI 전환은 `.env` 교체만으로 가능.
 
 ---
 
@@ -16,7 +16,7 @@ last-updated: 2026-05-28
 |------|------|
 | **프로젝트** | HWGI Query Assistant |
 | **목적** | 보험 도메인 현업의 자연어 질문 → 4 DBMS 방언 SQL 자동 생성 |
-| **기술 스택** | Python 3.13 · FastAPI · Pydantic 2 · httpx · SQLite(WAL, 예정) · Vanilla HTML/JS/CSS · OpenAI Chat (→ vLLM) |
+| **기술 스택** | Python 3.13 · FastAPI · Pydantic 2 · httpx · SQLite(WAL, 예정) · Vanilla HTML/JS/CSS · vLLM `gemma-4-31B-it` (OpenAI Chat 호환, 옵션 OpenAI) |
 | **MVP 기능** | DBMS 선택, 스키마 직접 입력, 자연어 → SQL 생성, SELECT-only 사후 검증, 복사/다운로드. (감사 로그는 P1 대기) |
 | **작업 관리** | [TODO: 도구 선정 후 링크 추가 — 자매 프로젝트는 Notion 사용] |
 | **상세 기획서** | [docs/PLAN.md](../docs/PLAN.md) |
@@ -78,8 +78,8 @@ HWGI_Query_Assistant/
 | HTTP 클라이언트 | httpx |
 | 데이터베이스 | SQLite(WAL 모드, 예정) — 감사 로그·즐겨찾기. 운영은 PostgreSQL 예정 |
 | 프론트엔드 | 분리 정적 자산 (`static/hw-query.{html,js,css}`) · Vanilla JS · 한화 디자인 토큰 3-Layer · 빌드 도구 없음 |
-| LLM (PoC) | OpenAI Chat Completions (`gpt-4o-mini` 등) |
-| LLM (목표) | 사내 vLLM `gemma-4-26B-A4B-it` (Chat Completions 호환) |
+| LLM (메인) | 사내 vLLM `gemma-4-31B-it` (OpenAI Chat Completions 호환, 인증 불필요) — 상세: [`docs/VLLM_API_GUIDE.md`](../docs/VLLM_API_GUIDE.md) |
+| LLM (옵션) | OpenAI Chat Completions (`gpt-4o-mini` 등) — `.env` 의 `LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY` 만 교체 |
 | 대상 DBMS | Oracle, MSSQL, Greenplum, Tibero |
 | 인프라 (목표) | 사내망 배포 — 자매 프로젝트의 AWS Private VPC 청사진 재사용 가능 |
 

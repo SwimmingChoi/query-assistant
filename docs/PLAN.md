@@ -14,8 +14,8 @@
 - 이로 인해 (1) 데이터 부서의 운영 부담 증가, (2) 현업의 의사결정 속도 저하, (3) DBMS별 방언 차이로 인한 쿼리 재작성 비용이 반복 발생한다.
 
 ### 1.2 기존 자산
-- **HWGI Translator**(현 프로젝트)에서 이미 FastAPI + OpenAI Chat 인프라와 사내 vLLM(`Gemma-4-26B-A4B-it`) 전환 경로를 검증해두었다.
-- 같은 인프라 패턴(OpenAI 우선 → vLLM 전환)을 재사용하면 PoC를 빠르게 띄울 수 있다.
+- **HWGI Translator**(현 프로젝트)에서 이미 FastAPI + OpenAI Chat 인프라와 사내 vLLM(`gemma-4-31B-it`) 전환 경로를 검증해두었다.
+- 같은 인프라 패턴(`LLM_BASE_URL`/`LLM_MODEL` 토글)을 재사용하면 PoC를 빠르게 띄울 수 있다.
 
 ### 1.3 의도한 결과
 - 현업이 한국어로 질문하면, **선택한 DBMS의 방언으로 실행 가능한 SQL**을 자동 생성해 복사/다운로드한다.
@@ -130,16 +130,18 @@
 
 ### 6.2 LLM 추상화
 ```
-LLM_BASE_URL   = https://api.openai.com/v1     # PoC
-LLM_MODEL      = gpt-4o-mini                   # PoC
-LLM_API_KEY    = sk-...
-
-# 추후 vLLM 전환 시:
-LLM_BASE_URL   = http://<vllm-host>:5015/v1
-LLM_MODEL      = gemma-4-26B-A4B-it
+# 메인: 사내 vLLM Gemma 4 (인증 불필요, OpenAI Chat 100% 호환)
+LLM_BASE_URL   = http://3.38.195.121:5015/v1
+LLM_MODEL      = gemma-4-31B-it
 LLM_API_KEY    =
+
+# 옵션: OpenAI 로 전환 시
+# LLM_BASE_URL = https://api.openai.com/v1
+# LLM_MODEL    = gpt-4o-mini
+# LLM_API_KEY  = sk-...
 ```
 - HWGI Translator의 `pipeline.py` 패턴과 동일하게 `BASE_URL` + `MODEL`만 교체하면 백엔드 전환 가능하도록 설계.
+- vLLM 게이트웨이 상세 (스트리밍·Thinking·툴 호출·이미지): [`docs/VLLM_API_GUIDE.md`](VLLM_API_GUIDE.md).
 
 ### 6.3 권장 폴더 구조 (HWGI_Translator 내 신규 모듈)
 ```

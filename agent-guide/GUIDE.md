@@ -29,7 +29,7 @@ last-updated: 2026-05-22
 | **방언(Dialect)** | DBMS별 SQL 문법 차이. Oracle/MSSQL/Greenplum/Tibero 4종 지원 |
 | **통합 추상화** | 사용자는 DBMS만 선택하고, 내부에서 방언을 분기하는 전략 |
 | **DBMS 4종** | Oracle, MSSQL, Greenplum, Tibero (사내 사용 DBMS) |
-| **vLLM** | 사내 LLM 추론 서버 (Gemma-4-26B-A4B-it 모델) |
+| **vLLM** | 사내 LLM 추론 서버 (`gemma-4-31B-it` 모델, OpenAI Chat Completions 호환) |
 | **현업** | SQL을 모르는 비개발자 사용자 (영업/언더라이팅/계리/마케팅 등) |
 | **골드셋** | DBMS별 회귀 테스트용 정답 SQL 셋 |
 | **MCP** | Model Context Protocol. AI가 외부 도구와 통신하는 방식 |
