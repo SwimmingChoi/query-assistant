@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HWGI Query Assistant — 자연어 → SQL</title>
+  <meta name="description" content="한화손해보험 사내 4종 DBMS 통합 자연어 → SQL 생성 도우미" />
+  <link rel="stylesheet" href="/static/hw-query.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav__inner">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true">HW</span>
+        <span>Query Assistant</span>
+      </div>
+      <div class="nav__meta">
+        <span id="modelBadge" class="badge badge--ghost" title="현재 LLM 모델">…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page">
+    <section class="page__intro">
+      <h1>자연어로 SQL을 만듭니다</h1>
+      <p class="muted">
+        스키마와 질문을 입력하면 선택한 DBMS의 방언에 맞춰 <strong>읽기 전용 SELECT</strong>를
+        생성합니다. 결과는 사내 도구(Toad/SQL Developer 등)에서 직접 실행하세요.
+      </p>
+    </section>
+
+    <div class="grid">
+      <!-- ───────────────────────── 입력 ───────────────────────── -->
+      <section class="card" aria-labelledby="inputTitle">
+        <h2 id="inputTitle" class="card__title">입력</h2>
+
+        <div class="field">
+          <label class="field__label">대상 DBMS</label>
+          <div class="seg" role="radiogroup" aria-label="DBMS 선택">
+            <button type="button" class="seg__btn is-active" data-dbms="oracle"    role="radio" aria-checked="true">Oracle</button>
+            <button type="button" class="seg__btn"           data-dbms="mssql"     role="radio" aria-checked="false">MSSQL</button>
+            <button type="button" class="seg__btn"           data-dbms="greenplum" role="radio" aria-checked="false">Greenplum</button>
+            <button type="button" class="seg__btn"           data-dbms="tibero"    role="radio" aria-checked="false">Tibero</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field__head">
+            <label class="field__label" for="schemaInput">스키마 (테이블/컬럼 정의)</label>
+            <button type="button" id="templateBtn" class="link-btn" title="선택한 DBMS 예시 스키마로 채우기">
+              예시로 채우기
+            </button>
+          </div>
+          <textarea
+            id="schemaInput"
+            rows="10"
+            placeholder="예시) CONTRACT(POL_NO VARCHAR2(20) PK, REG_DATE DATE, REGION VARCHAR2(20), PREMIUM NUMBER)"
+            spellcheck="false"
+            aria-describedby="schemaHelp"
+          ></textarea>
+          <p id="schemaHelp" class="hint">
+            테이블·컬럼·타입·주석을 자유 형식으로 적으세요. 사용자가 입력한 식별자 외에는 추측하지 않습니다.
+          </p>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="questionInput">질문</label>
+          <textarea
+            id="questionInput"
+            rows="3"
+            placeholder="예시) 지난달 강원도에서 신규 계약된 건수와 평균 보험료를 알려줘"
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <div class="field__actions">
+          <button type="button" id="generateBtn" class="btn btn--primary">
+            <span class="btn__label">SQL 생성</span>
+            <span class="btn__spinner" aria-hidden="true"></span>
+          </button>
+          <button type="button" id="clearBtn" class="btn btn--ghost">입력 비우기</button>
+        </div>
+      </section>
+
+      <!-- ───────────────────────── 결과 ───────────────────────── -->
+      <section class="card" aria-labelledby="resultTitle">
+        <div class="card__head">
+          <h2 id="resultTitle" class="card__title">결과</h2>
+          <div class="result__actions" hidden id="resultActions">
+            <button type="button" id="copyBtn" class="btn btn--ghost btn--sm">SQL 복사</button>
+            <button type="button" id="downloadBtn" class="btn btn--ghost btn--sm">다운로드</button>
+          </div>
+        </div>
+
+        <div id="resultEmpty" class="result__empty">
+          왼쪽에서 입력 후 <strong>SQL 생성</strong> 버튼을 누르세요.
+        </div>
+
+        <div id="resultError" class="alert alert--danger" hidden role="alert"></div>
+
+        <div id="resultBody" hidden>
+          <h3 class="section-label">생성된 SQL</h3>
+          <pre id="resultSql" class="code-block" tabindex="0"></pre>
+
+          <h3 class="section-label section-label--assumptions" id="assumptionsTitle" hidden>가정</h3>
+          <ul id="resultAssumptions" class="bullet bullet--info" hidden></ul>
+
+          <h3 class="section-label section-label--warnings" id="warningsTitle" hidden>주의</h3>
+          <ul id="resultWarnings" class="bullet bullet--warning" hidden></ul>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <small>
+        본 도구는 SQL을 <strong>생성만</strong> 합니다. 실제 실행 전 반드시 검토하세요.
+        실 데이터(주민번호·계약자명·금액 등)는 입력하지 마세요.
+      </small>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/static/hw-query.js" defer></script>
+</body>
+</html>
