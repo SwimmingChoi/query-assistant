@@ -25,15 +25,36 @@ from app.query_assistant.safety import SafetyViolation, validate_sql  # noqa: E4
 CASES: list[tuple[str, str, bool]] = [
     # --- 통과 기대 -----------------------------------------------------------
     (
-        "Oracle few-shot 정상 쿼리",
-        "SELECT COUNT(*) AS \"신규계약건수\" FROM CONTRACT "
+        "Oracle few-shot 정상 쿼리 (큰따옴표 별칭 — 공백/예약어 케이스)",
+        "SELECT COUNT(*) AS \"신규 계약 건수\" FROM CONTRACT "
         "WHERE REG_DATE >= TRUNC(ADD_MONTHS(SYSDATE,-1),'MM');",
+        True,
+    ),
+    (
+        "Oracle 한국어 별칭 따옴표 없음 (사내 관행)",
+        "SELECT COUNT(*) AS 신규계약건수, AVG(PREMIUM) AS 평균보험료 FROM CONTRACT;",
+        True,
+    ),
+    (
+        "Greenplum 한국어 별칭 따옴표 없음 + CASE 코드 매핑",
+        "SELECT CASE WHEN A.INS_ITM_SMCCD='CA00003' THEN '개인용' ELSE '기타' END AS 보종, "
+        "COUNT(*) AS 건수 FROM CONTRACT A GROUP BY A.INS_ITM_SMCCD;",
+        True,
+    ),
+    (
+        "Tibero 한국어 별칭 따옴표 없음 + SUM(CASE)",
+        "SELECT SUM(CASE WHEN A.DP_DT_CASCD='00' THEN 1 ELSE 0 END) AS 계상건수 FROM CONTRACT A;",
         True,
     ),
     (
         "MSSQL TOP + N'...' 문자열",
         "SELECT TOP 10 [신규계약건수]=COUNT(*) FROM CONTRACT "
         "WHERE REGION=N'강원도';",
+        True,
+    ),
+    (
+        "MSSQL 대괄호 한국어 별칭 (사내 관행)",
+        "SELECT COUNT(*) AS [신규계약건수], AVG(PREMIUM) AS [평균보험료] FROM CONTRACT;",
         True,
     ),
     (

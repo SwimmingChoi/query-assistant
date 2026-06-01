@@ -39,7 +39,10 @@ _BASE_SYSTEM = """\
 }
 
 # 작성 원칙
-- 한국어 컬럼 별칭 권장 (예: `AS "신규계약건수"`). 식별자 안 한글 사용 시 따옴표/대괄호 등 DBMS 인용 규칙 준수.
+- 한국어 컬럼 별칭 권장. 단, **DBMS별 인용 규칙이 다릅니다 (사내 관행 반영)**:
+  - **Oracle / Tibero / Greenplum**: 따옴표 없이 사용 (예: `AS 신규계약건수`). 사내 표준이며 결과 컬럼 헤더가 그대로 한글로 노출됩니다.
+  - **MSSQL**: 대괄호 필수 (예: `AS [신규계약건수]`). 한글은 MSSQL 식별자 시작 문자로 허용되지 않아 인용 부호가 없으면 오류가 납니다.
+  - 큰따옴표(`AS "..."`)는 별칭에 공백·예약어·특수문자가 포함된 경우에만 사용하고, 일반 한글 별칭에는 사용하지 않습니다.
 - 결과 행이 많을 가능성이 있으면 `assumptions` 에 페이징/필터 권고를 적고 SQL에도 적절한 제한(예: ROWNUM/TOP/LIMIT)을 추가합니다.
 - 날짜 표현이 모호하면(예: "지난달") 사용한 기준 시각 함수와 범위를 `assumptions` 에 명시합니다.
 - GROUP BY/ORDER BY 의 비집계 컬럼은 빠짐없이 명시합니다.
@@ -133,7 +136,7 @@ CONTRACT(
 _FEWSHOT_BY_DBMS: dict[DBMS, str] = {
     DBMS.ORACLE: """\
 {
-  "sql": "SELECT COUNT(*) AS \\"신규계약건수\\", AVG(PREMIUM) AS \\"평균보험료\\"\\nFROM CONTRACT\\nWHERE REGION = '강원도'\\n  AND REG_DATE >= TRUNC(ADD_MONTHS(SYSDATE, -1), 'MM')\\n  AND REG_DATE <  TRUNC(SYSDATE, 'MM');",
+  "sql": "SELECT COUNT(*) AS 신규계약건수, AVG(PREMIUM) AS 평균보험료\\nFROM CONTRACT\\nWHERE REGION = '강원도'\\n  AND REG_DATE >= TRUNC(ADD_MONTHS(SYSDATE, -1), 'MM')\\n  AND REG_DATE <  TRUNC(SYSDATE, 'MM');",
   "assumptions": [
     "'지난달' = SYSDATE 기준 직전 달의 1일 00:00 ~ 이번 달 1일 00:00 미만",
     "'강원도' 은 REGION 컬럼의 정확 일치로 가정 ('강원' 만 들어있을 가능성 검토 필요)",
@@ -159,7 +162,7 @@ _FEWSHOT_BY_DBMS: dict[DBMS, str] = {
 }""",
     DBMS.GREENPLUM: """\
 {
-  "sql": "SELECT COUNT(*) AS \\"신규계약건수\\", AVG(PREMIUM) AS \\"평균보험료\\"\\nFROM CONTRACT\\nWHERE REGION = '강원도'\\n  AND REG_DATE >= DATE_TRUNC('month', NOW() - INTERVAL '1 month')\\n  AND REG_DATE <  DATE_TRUNC('month', NOW());",
+  "sql": "SELECT COUNT(*) AS 신규계약건수, AVG(PREMIUM) AS 평균보험료\\nFROM CONTRACT\\nWHERE REGION = '강원도'\\n  AND REG_DATE >= DATE_TRUNC('month', NOW() - INTERVAL '1 month')\\n  AND REG_DATE <  DATE_TRUNC('month', NOW());",
   "assumptions": [
     "'지난달' = NOW() 기준 직전 달의 1일 00:00 ~ 이번 달 1일 00:00 미만",
     "'강원도' 은 REGION 컬럼의 정확 일치로 가정",
@@ -172,7 +175,7 @@ _FEWSHOT_BY_DBMS: dict[DBMS, str] = {
 }""",
     DBMS.TIBERO: """\
 {
-  "sql": "SELECT COUNT(*) AS \\"신규계약건수\\", AVG(PREMIUM) AS \\"평균보험료\\"\\nFROM CONTRACT\\nWHERE REGION = '강원도'\\n  AND REG_DATE >= TRUNC(ADD_MONTHS(SYSDATE, -1), 'MM')\\n  AND REG_DATE <  TRUNC(SYSDATE, 'MM');",
+  "sql": "SELECT COUNT(*) AS 신규계약건수, AVG(PREMIUM) AS 평균보험료\\nFROM CONTRACT\\nWHERE REGION = '강원도'\\n  AND REG_DATE >= TRUNC(ADD_MONTHS(SYSDATE, -1), 'MM')\\n  AND REG_DATE <  TRUNC(SYSDATE, 'MM');",
   "assumptions": [
     "'지난달' = SYSDATE 기준 직전 달의 1일 00:00 ~ 이번 달 1일 00:00 미만 (Oracle 호환 문법 사용)",
     "'강원도' 은 REGION 컬럼의 정확 일치로 가정",
