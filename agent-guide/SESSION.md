@@ -1,7 +1,7 @@
 ---
 name: session
 description: 프로젝트 현재 상태. 세션 시작 시 현재 상태 파악용.
-last-updated: 2026-05-29 (저녁)
+last-updated: 2026-06-01
 ---
 
 # 세션 상태
@@ -35,9 +35,9 @@ last-updated: 2026-05-29 (저녁)
 | ~~P0~~ | ~~운영 패턴 대응 한도 상향 (schema_text 20K→40K, timeout 60→120, max_tokens 8000 신설)~~ | **Done (2026-05-29 저녁)** |
 | ~~P1~~ | ~~사내 분석 패턴 cookbook 시스템 프롬프트 추가 (마감년월/CASE 매핑/SUM(CASE)/ROW_NUMBER/다중 JOIN/GROUP BY 반복)~~ | **Done (2026-05-29 저녁)** |
 | ~~P1~~ | ~~UI 개편 (메타 칩·콜아웃·배지·재생성·초기화) + 브랜드 한국어화~~ | **Done (2026-05-29 저녁)** |
+| ~~P1~~ | ~~한국어 별칭 표기 정책 결정 (DBMS별 분기: Oracle/Tibero/Greenplum 따옴표 없음 + MSSQL 대괄호)~~ | **Done (2026-06-01)** |
 | P1 | 식별자 후처리 검증 (스키마 텍스트와 SQL 식별자 대조) — `safety.py` 확장 또는 별도 모듈 | Todo |
-| P1 | 한국어 별칭 표기 정책 결정 (사내 관행 따옴표 없는 별칭 허용 여부) | Todo |
-| P1 | 사내 분석 패턴을 `dialects.py` 메타데이터로 격상 (cookbook → 구조화) | Todo |
+| P1 | 사내 분석 패턴을 `dialects.py` 메타데이터로 격상 (cookbook → 구조화) — 한국어 별칭 정책도 `identifier_quote` 메시지 톤 정합화 포함 | Todo |
 | P1 | 브라우저 실 동작 검증 (vLLM 기본값으로 4 DBMS 골든셋 일부 시연) | Todo |
 | P1 | 감사 로그 SQLite 스키마 설계 + 기록 | Todo |
 | P2 | 계리/데이터 부서 검증용 골드셋(30~50문항) 초안 | Todo |
@@ -53,6 +53,43 @@ last-updated: 2026-05-29 (저녁)
 ---
 
 ## 최근 세션
+
+### 2026-06-01 — 한국어 별칭 표기 정책 결정 (DBMS별 분기)
+
+#### 세션 목표
+- P1: 사내 관행(따옴표 없는 한국어 별칭) vs 표준 안전성 트레이드오프를 정책으로 확정하고 프롬프트/few-shot 반영.
+
+#### 결정 사항
+- **정책: DBMS별 분기**
+  - Oracle / Tibero / Greenplum: 따옴표 없이 사용 (예: `AS 신규계약건수`). 사내 표준이며 결과 컬럼 헤더가 한글로 그대로 노출.
+  - MSSQL: 대괄호 필수 (예: `AS [신규계약건수]`). 한글은 MSSQL regular identifier 시작 문자로 허용되지 않아 인용 부호가 없으면 오류.
+  - 큰따옴표(`AS "..."`)는 별칭에 공백·예약어·특수문자가 포함된 경우에만 사용 (일반 한글 별칭에는 사용 금지).
+- **적용 범위**: 시스템 프롬프트 + few-shot 둘 다. `dialects.py` 메타데이터(`identifier_quote`)는 적용 범위 제외 — 추후 cookbook 격상 작업과 함께 정합화 예정 (P1 Todo 갱신).
+- **사내 호환성 우선**: 사내 클라이언트(Toad/SQL Developer 등) 및 NLS 설정이 따옴표 없는 한글 별칭을 관용적으로 허용해 왔다는 사용자 보고에 근거. 다른 환경 배포 시 회귀 가능성 있음 → `assumptions`/`warnings` 에는 반영하지 않고 사내 표준으로 고정.
+
+#### 변경 파일
+| 파일 | 변경 유형 | 요약 |
+|------|----------|------|
+| `backend/app/query_assistant/prompts.py` | 갱신 | `_BASE_SYSTEM` 의 "# 작성 원칙" 첫 항목을 DBMS별 분기 정책으로 교체. `_FEWSHOT_BY_DBMS` Oracle/Tibero/Greenplum 의 `AS "신규계약건수"`/`AS "평균보험료"` → 따옴표 제거. MSSQL `AS [...]` 유지. |
+| `backend/scripts/try_safety.py` | 갱신 | 한국어 별칭 따옴표 없음 회귀 케이스 4건 추가(Oracle/Greenplum/Tibero/MSSQL). 기존 큰따옴표 케이스는 공백 포함 별칭(`"신규 계약 건수"`)으로 변경하여 큰따옴표 용도(공백/예약어) 명시. |
+| `agent-guide/SESSION.md` | 갱신 | 본 세션 로그 + P1 완료 처리. |
+
+#### 검증
+- `python scripts/try_safety.py` → 68/68 케이스 통과 (기존 64 + 신규 4). 한국어 별칭 따옴표 없음 4 DBMS 모두 PASS.
+- verifier 점검: prompts.py 안 한국어 별칭 등장 위치 6곳(작성 원칙 2건 + cookbook 2건 + few-shot 4건) 모두 정책 일관. cookbook 의 `AS 보종`/`AS 건수` 도 기존부터 따옴표 없음으로 정책과 자연스럽게 정합.
+- few-shot 4종 `json.loads` 유효성 통과.
+- safety 검증 로직(`_FORBIDDEN_KEYWORDS` 영어 키워드만 deny) 특성상 한글 별칭은 정제 단계에 영향 없음을 재확인.
+
+#### 발견 사항 (P2 — 추후 처리)
+- `dialects.py` 의 `identifier_quote` 필드가 dialect_block 을 통해 LLM 에 그대로 노출되는데 새 정책 톤과 약간 어긋남:
+  - MSSQL: "대괄호가 관용적" → 정책상 한글 별칭에는 "필수"
+  - Greenplum/Tibero: 한글 별칭의 따옴표 생략 케이스가 메시지에 없음
+- 사용자 명시 범위 외라 본 세션에서는 미수정. P1 "사내 분석 패턴을 `dialects.py` 메타데이터로 격상" 작업과 묶어 정합화 예정.
+
+#### 다음 작업 추천
+- **P1 식별자 후처리 검증** — Gemma 4 환각 방어. 정책 변경으로 인용 부호 없는 별칭이 늘면서 식별자 추출/대조 로직의 토큰 분리 규칙(공백 기준 한글 토큰 처리)도 함께 고려 필요.
+- **P1 사내 패턴 `dialects.py` 격상** — cookbook 텍스트를 `partition_key_pattern`/`row_number_template` + `identifier_quote_for_korean_alias` 같은 구조화 필드로. 위 P2 정합화 자연 흡수.
+- **P1 vLLM 실 호출 시연** — 정책 변경 후 4 DBMS 별 한국어 별칭이 의도대로 출력되는지 골든셋으로 확인.
 
 ### 2026-05-29 (저녁) — 실 운영 패턴 반영 + UI 개편
 
