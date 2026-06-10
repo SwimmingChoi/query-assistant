@@ -19,7 +19,6 @@
 한계 (P1 작업으로 후속 진행):
 - SELECT-only 사후 검증(`safety.py`) 미적용 — 현재는 시스템 프롬프트의
   "절대 규칙 1" 만으로 DDL/DML 을 막고 있음. LLM 출력 신뢰는 부분적.
-- 감사 로그(SQLite) 미적용.
 """
 from __future__ import annotations
 
@@ -31,6 +30,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from .audit_logger import init_db
 from .config import PROJECT_ROOT, get_settings
 from .query_assistant.dialects import DBMS
 from .query_assistant.router import router as query_router
@@ -62,6 +62,9 @@ async def lifespan(app: FastAPI):
 
     app.state.settings = settings
     app.state.http = client
+
+    init_db(settings.resolved_database_path)
+    app.state.db_path = settings.resolved_database_path
 
     # 인증이 필요한 base_url(예: OpenAI) 인데 키가 비어있을 때만 경고.
     # 사내 vLLM 은 인증 불필요(docs/VLLM_API_GUIDE.md) 이라 키 없이 정상 동작.

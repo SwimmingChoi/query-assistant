@@ -39,7 +39,7 @@ last-updated: 2026-06-01
 | P1 | 식별자 후처리 검증 (스키마 텍스트와 SQL 식별자 대조) — `safety.py` 확장 또는 별도 모듈 | Todo |
 | P1 | 사내 분석 패턴을 `dialects.py` 메타데이터로 격상 (cookbook → 구조화) — 한국어 별칭 정책도 `identifier_quote` 메시지 톤 정합화 포함 | Todo |
 | P1 | 브라우저 실 동작 검증 (vLLM 기본값으로 4 DBMS 골든셋 일부 시연) | Todo |
-| P1 | 감사 로그 SQLite 스키마 설계 + 기록 | Todo |
+| ~~P1~~ | ~~감사 로그 SQLite 스키마 설계 + 기록~~ | **Done (2026-06-10)** |
 | P2 | 계리/데이터 부서 검증용 골드셋(30~50문항) 초안 | Todo |
 | P2 | 코드 매핑 사전 분리 입력 UX (현재는 schema_text 안 자유 텍스트) | Todo |
 | P2 | 로컬 PoC 기동 가이드 (README + .env.example) | Todo |
@@ -53,6 +53,34 @@ last-updated: 2026-06-01
 ---
 
 ## 최근 세션
+
+### 2026-06-10 — 감사 로그 SQLite 구현
+
+#### 세션 목표
+- P1: SQL 생성 요청(성공/실패 모두)을 SQLite에 비동기 기록.
+
+#### 변경 파일
+| 파일 | 변경 유형 | 요약 |
+|------|----------|------|
+| `backend/app/audit_logger.py` | 추가 | `init_db` (테이블 생성) + `log_query` (INSERT). 내장 `sqlite3` 사용, 추가 의존성 없음. 로그 실패는 예외 삼킴 처리. |
+| `backend/app/main.py` | 갱신 | lifespan 에 `init_db()` + `app.state.db_path` 추가. |
+| `backend/app/query_assistant/router.py` | 갱신 | `BackgroundTasks` 파라미터 추가. 성공/실패 양쪽 경로에서 `background_tasks.add_task(log_query, ...)` 호출. `time.monotonic()` 으로 `duration_ms` 측정. |
+
+#### 결정 사항
+- **BackgroundTasks (def 함수)**: FastAPI 가 `def` 함수를 자동으로 스레드풀에서 실행. 이벤트 루프 차단 없이 응답 전송 후 기록.
+- **schema_text 저장**: 40KB까지 가능, 디버깅용. SQLite TEXT 제한 없음.
+- **에러도 기록**: `success=0`, `error_type`/`error_msg` 필드로 실패 패턴 추적.
+- **`.gitignore` 기존 적용**: `backend/data/`와 `*.sqlite3` 이미 등록되어 있어 수정 불필요.
+
+#### 검증
+- `init_db` + `log_query` 단위 테스트: oracle 성공·mssql 실패 2건 INSERT/SELECT 정상.
+- `uvicorn app.main:app` 부팅 → `audit DB 초기화: .../backend/data/audit.sqlite3` 로그 + 파일 생성(12KB) 확인.
+- `try_safety.py` 68/68 케이스 통과 (회귀 없음).
+
+#### 다음 작업 추천
+- **P1 식별자 후처리 검증** — 스키마 텍스트와 SQL 식별자 대조 (`safety.py` 확장 또는 별도 모듈).
+- **P1 사내 패턴 `dialects.py` 격상** — cookbook 텍스트를 구조화 필드로.
+- **P1 브라우저 실 동작 검증** — 4 DBMS 골든셋 시연 + 로그 기록 확인.
 
 ### 2026-06-01 — 한국어 별칭 표기 정책 결정 (DBMS별 분기)
 
